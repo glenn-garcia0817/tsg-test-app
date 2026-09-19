@@ -40,19 +40,19 @@ test('stores links order', function (): void {
     ]);
 
     $component->call('storeSort', [
-        $links[0]->id,
-        $links[1]->id,
         $links[2]->id,
+        $links[0]->id,
         23456789, // non-existing link
         $anotherUserLink->id,
+        $links[1]->id,
     ]);
 
     $user->refresh();
 
     expect($user->links_sort)->toBe([
+        $links[2]->id,
         $links[0]->id,
         $links[1]->id,
-        $links[2]->id,
     ]);
 });
 
@@ -213,6 +213,69 @@ test('count to be abbreviated', function (): void {
         ->assertSee('12K')
         ->assertSee('125K')
         ->assertSee('1M');
+});
+
+test('click count is displayed only to the profile owner', function (): void {
+    $owner = User::factory()->create();
+    $visitor = User::factory()->create();
+    $link = Link::factory()->create([
+        'user_id' => $owner->id,
+        'click_count' => 42,
+    ]);
+
+    Livewire::actingAs($owner)
+        ->test(Index::class, ['userId' => $owner->id])
+        ->assertSee("Clicked {$link->click_count} times");
+
+    Livewire::actingAs($visitor)
+        ->test(Index::class, ['userId' => $owner->id])
+        ->assertDontSee("Clicked {$link->click_count} times");
+});
+
+test('most visited link is highlighted for visitors but not the profile owner', function (): void {
+    $owner = User::factory()->create();
+    $visitor = User::factory()->create();
+    $lessVisitedLink = Link::factory()->create(['user_id' => $owner->id, 'click_count' => 10]);
+    $mostVisitedLink = Link::factory()->create(['user_id' => $owner->id, 'click_count' => 20]);
+
+    Livewire::actingAs($visitor)
+        ->test(Index::class, ['userId' => $owner->id])
+        ->assertSee('Most Visited')
+        ->assertSeeHtml("data-most-visited-link-id=\"{$mostVisitedLink->id}\"")
+        ->assertDontSeeHtml("data-most-visited-link-id=\"{$lessVisitedLink->id}\"");
+
+    Livewire::actingAs($owner)
+        ->test(Index::class, ['userId' => $owner->id])
+        ->assertDontSee('Most Visited');
+});
+
+test('most visited link is highlighted for guests', function (): void {
+    $owner = User::factory()->create();
+    $mostVisitedLink = Link::factory()->create(['user_id' => $owner->id, 'click_count' => 20]);
+
+    Livewire::test(Index::class, ['userId' => $owner->id])
+        ->assertSee('Most Visited')
+        ->assertSeeHtml("data-most-visited-link-id=\"{$mostVisitedLink->id}\"");
+});
+
+test('most visited link is not highlighted when every link has zero clicks', function (): void {
+    $owner = User::factory()->create();
+    Link::factory(2)->create(['user_id' => $owner->id, 'click_count' => 0]);
+
+    Livewire::test(Index::class, ['userId' => $owner->id])
+        ->assertDontSee('Most Visited');
+});
+
+test('only the first displayed link is highlighted when click counts are tied', function (): void {
+    $owner = User::factory()->create();
+    $firstLink = Link::factory()->create(['user_id' => $owner->id, 'click_count' => 20]);
+    $secondLink = Link::factory()->create(['user_id' => $owner->id, 'click_count' => 20]);
+
+    $component = Livewire::test(Index::class, ['userId' => $owner->id])
+        ->assertSeeHtml("data-most-visited-link-id=\"{$firstLink->id}\"")
+        ->assertDontSeeHtml("data-most-visited-link-id=\"{$secondLink->id}\"");
+
+    expect(substr_count($component->html(), 'data-most-visited-link-id'))->toBe(1);
 });
 
 test('follow is idempotent', function (): void {

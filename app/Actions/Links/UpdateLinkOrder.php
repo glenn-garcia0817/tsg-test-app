@@ -18,7 +18,6 @@ final readonly class UpdateLinkOrder
         $sort = collect($sort)
             ->map(fn (string $linkId): ?int => $user->links->contains($linkId) ? ((int) $linkId) : null)
             ->filter()
-            ->sort()
             ->values()
             ->toArray();
 

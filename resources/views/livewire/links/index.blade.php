@@ -1,3 +1,8 @@
+@php
+    $highestClickCount = $links->max('click_count') ?? 0;
+    $mostVisitedLinkId = $highestClickCount > 0 ? $links->firstWhere('click_count', $highestClickCount)?->id : null;
+@endphp
+
 <div
     class="space-y-4"
     @if (auth()->user()?->is($user))
@@ -274,14 +279,6 @@
                                 class="absolute top-0 -right-56 bottom-0 z-5 flex items-center justify-center transition-all duration-500"
                                 x-bind:class="showActions ? 'max-sm:inset-0 sm:group-hover:inset-0' : ''"
                             >
-                                <div
-                                    class="min-w-fit cursor-help items-center gap-1 text-xs text-white"
-                                    title="Clicked {{ Number::format($link->click_count) }} times"
-                                    x-bind:class="{ invisible: isDragging }"
-                                >
-                                    {{ Number::abbreviate($link->click_count) }} {{ str('click')->plural($link->click_count) }}
-                                </div>
-
                                 <button
                                     wire:click="setVisibility({{ $link->id }})"
                                     type="button"
@@ -336,7 +333,7 @@
                             class="{{ $user->link_shape }} {{ $user->gradient }} h-12 rounded-[1.75rem] hover:darken-gradient flex justify-center bg-linear-to-r shadow-lg shadow-slate-900/10"
                             wire:click="click({{ $link->id }})"
                         >
-                            <x-links.list-item :$user :$link />
+                            <x-links.list-item :$user :$link :is-most-visited="$link->id === $mostVisitedLinkId" />
                         </div>
                     @endforeach
                 </div>
